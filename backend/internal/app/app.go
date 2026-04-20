@@ -63,7 +63,7 @@ func newRouter() http.Handler {
 	r.Use(middleware.Heartbeat("/health"))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// маршруты добавляются здесь по мере разработки
+		// TODO: добавить роуты
 	})
 
 	return r
