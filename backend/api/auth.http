@@ -1,0 +1,29 @@
+@baseUrl = http://localhost:8080/api/v1
+@contentType = application/json
+
+### Регистрация — успешная
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "secret123"
+}
+
+### Регистрация — дублирующийся email (ожидаем 409)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "secret123"
+}
+
+### Регистрация — пустые поля (ожидаем 400)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "",
+  "password": ""
+}

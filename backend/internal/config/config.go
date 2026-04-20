@@ -12,6 +12,11 @@ type Config struct {
 	Env      string
 	Server   ServerConfig
 	Database DatabaseConfig
+	JWT      JWTConfig
+}
+
+type JWTConfig struct {
+	Secret string
 }
 
 type ServerConfig struct {
@@ -40,6 +45,12 @@ func MustLoad(log *slog.Logger) *Config {
 	cfg.Database.DSN = os.Getenv("DATABASE_URL")
 	if cfg.Database.DSN == "" {
 		log.Error("DATABASE_URL is not set")
+		os.Exit(1)
+	}
+
+	cfg.JWT.Secret = os.Getenv("JWT_SECRET")
+	if cfg.JWT.Secret == "" {
+		log.Error("JWT_SECRET is not set")
 		os.Exit(1)
 	}
 

@@ -11,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/AZRV17/audio-book-app/internal/config"
+	"github.com/AZRV17/audio-book-app/internal/handler"
+	"github.com/AZRV17/audio-book-app/internal/repository"
+	"github.com/AZRV17/audio-book-app/internal/service"
 )
 
 type App struct {
@@ -21,7 +24,11 @@ type App struct {
 }
 
 func New(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) *App {
-	router := newRouter()
+	userRepo := repository.NewUserRepository(db)
+	authService := service.NewAuthService(userRepo, cfg.JWT.Secret)
+	authHandler := handler.NewAuthHandler(authService, logger)
+
+	router := newRouter(authHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
@@ -53,7 +60,7 @@ func (a *App) Stop(ctx context.Context) error {
 	return nil
 }
 
-func newRouter() http.Handler {
+func newRouter(authHandler *handler.AuthHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -63,7 +70,7 @@ func newRouter() http.Handler {
 	r.Use(middleware.Heartbeat("/health"))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// TODO: добавить роуты
+		r.Post("/auth/register", authHandler.Register)
 	})
 
 	return r
