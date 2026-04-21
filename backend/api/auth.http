@@ -19,6 +19,24 @@ Content-Type: {{contentType}}
   "password": "secret123"
 }
 
+### Авторизация — успешная
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "secret123"
+}
+
+### Авторизация — неверный пароль (ожидаем 401)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "wrongpassword"
+}
+
 ### Регистрация — пустые поля (ожидаем 400)
 POST {{baseUrl}}/auth/register
 Content-Type: {{contentType}}
