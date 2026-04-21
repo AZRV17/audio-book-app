@@ -12,22 +12,22 @@ export default function HomePage() {
       <p className="text-stone-500 text-lg max-w-xl mb-8">
         Тысячи аудиокниг для занятых людей. Совмещайте чтение с повседневными делами.
       </p>
-      {!user && (
-        <div className="flex gap-4">
-          <Link
-            to="/login"
-            className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            Войти
-          </Link>
+      <div className="flex gap-4">
+        <Link
+          to="/catalog"
+          className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+        >
+          Перейти в каталог
+        </Link>
+        {!user && (
           <Link
             to="/register"
             className="bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 px-6 py-3 rounded-lg font-medium transition-colors"
           >
             Зарегистрироваться
           </Link>
-        </div>
-      )}
+        )}
+      </div>
     </main>
   )
 }

@@ -1,0 +1,20 @@
+@baseUrl = http://localhost:8080/api/v1
+@contentType = application/json
+
+### Все книги
+GET {{baseUrl}}/books
+
+### Поиск по названию/автору
+GET {{baseUrl}}/books?search=пушкин
+
+### Фильтр по жанру
+GET {{baseUrl}}/books?genre_id=1
+
+### Поиск + жанр
+GET {{baseUrl}}/books?search=война&genre_id=7
+
+### Книга по ID
+GET {{baseUrl}}/books/1
+
+### Все жанры
+GET {{baseUrl}}/genres
