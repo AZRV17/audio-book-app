@@ -28,7 +28,11 @@ func New(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) *App {
 	authService := service.NewAuthService(userRepo, cfg.JWT.Secret)
 	authHandler := handler.NewAuthHandler(authService, logger)
 
-	router := newRouter(authHandler)
+	bookRepo := repository.NewBookRepository(db)
+	genreRepo := repository.NewGenreRepository(db)
+	bookHandler := handler.NewBookHandler(bookRepo, genreRepo, logger)
+
+	router := newRouter(authHandler, bookHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
@@ -60,7 +64,7 @@ func (a *App) Stop(ctx context.Context) error {
 	return nil
 }
 
-func newRouter(authHandler *handler.AuthHandler) http.Handler {
+func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -72,6 +76,10 @@ func newRouter(authHandler *handler.AuthHandler) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", authHandler.Register)
 		r.Post("/auth/login", authHandler.Login)
+
+		r.Get("/books", bookHandler.GetBooks)
+		r.Get("/books/{id}", bookHandler.GetBook)
+		r.Get("/genres", bookHandler.GetGenres)
 	})
 
 	return r
