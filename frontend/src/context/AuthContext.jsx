@@ -5,26 +5,33 @@ export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('user')
-    return stored ? JSON.parse(stored) : null
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      localStorage.removeItem('user')
+      return null
+    }
   })
   const [token, setToken] = useState(() => localStorage.getItem('token'))
 
   const login = useCallback(async (credentials) => {
     const { data } = await apiLogin(credentials)
+    const user = { id: data.id, email: data.email }
     localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify(data.user))
+    localStorage.setItem('user', JSON.stringify(user))
     setToken(data.token)
-    setUser(data.user)
+    setUser(user)
     return data
   }, [])
 
   const register = useCallback(async (credentials) => {
     const { data } = await apiRegister(credentials)
+    const user = { id: data.id, email: data.email }
     localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify(data.user))
+    localStorage.setItem('user', JSON.stringify(user))
     setToken(data.token)
-    setUser(data.user)
+    setUser(user)
     return data
   }, [])
 

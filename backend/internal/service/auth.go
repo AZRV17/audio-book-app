@@ -44,6 +44,27 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 	return token, user, nil
 }
 
+func (s *AuthService) Login(ctx context.Context, email, password string) (string, *domain.User, error) {
+	user, err := s.userRepo.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return "", nil, repository.ErrUserNotFound
+		}
+		return "", nil, fmt.Errorf("find user: %w", err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		return "", nil, repository.ErrUserNotFound
+	}
+
+	token, err := s.generateToken(user.ID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return token, user, nil
+}
+
 func (s *AuthService) generateToken(userID int64) (string, error) {
 	claims := jwt.MapClaims{
 		"sub": userID,
