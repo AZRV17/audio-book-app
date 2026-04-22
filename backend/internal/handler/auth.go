@@ -28,6 +28,7 @@ type authResponse struct {
 	Token string `json:"token"`
 	Email string `json:"email"`
 	ID    int64  `json:"id"`
+	Role  string `json:"role"`
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +58,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Token: token,
 		Email: user.Email,
 		ID:    user.ID,
+		Role:  user.Role,
 	})
 }
 
@@ -87,6 +89,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Token: token,
 		Email: user.Email,
 		ID:    user.ID,
+		Role:  user.Role,
 	})
 }
 

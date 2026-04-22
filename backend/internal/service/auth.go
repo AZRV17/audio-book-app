@@ -36,7 +36,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 		return "", nil, fmt.Errorf("create user: %w", err)
 	}
 
-	token, err := s.generateToken(user.ID)
+	token, err := s.generateToken(user.ID, user.Role)
 	if err != nil {
 		return "", nil, err
 	}
@@ -57,7 +57,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 		return "", nil, repository.ErrUserNotFound
 	}
 
-	token, err := s.generateToken(user.ID)
+	token, err := s.generateToken(user.ID, user.Role)
 	if err != nil {
 		return "", nil, err
 	}
@@ -65,10 +65,11 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	return token, user, nil
 }
 
-func (s *AuthService) generateToken(userID int64) (string, error) {
+func (s *AuthService) generateToken(userID int64, role string) (string, error) {
 	claims := jwt.MapClaims{
-		"sub": userID,
-		"exp": time.Now().Add(72 * time.Hour).Unix(),
+		"sub":  userID,
+		"role": role,
+		"exp":  time.Now().Add(72 * time.Hour).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

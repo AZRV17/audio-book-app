@@ -9,10 +9,11 @@ import (
 )
 
 type Config struct {
-	Env      string
-	Server   ServerConfig
-	Database DatabaseConfig
-	JWT      JWTConfig
+	Env            string
+	Server         ServerConfig
+	Database       DatabaseConfig
+	JWT            JWTConfig
+	GoogleBooksKey string
 }
 
 type JWTConfig struct {
@@ -53,6 +54,8 @@ func MustLoad(log *slog.Logger) *Config {
 		log.Error("JWT_SECRET is not set")
 		os.Exit(1)
 	}
+
+	cfg.GoogleBooksKey = os.Getenv("GOOGLE_BOOKS_API_KEY")
 
 	return cfg
 }

@@ -47,6 +47,32 @@ func (r *BookRepository) FindAll(ctx context.Context, search string, genreID *in
 	return books, nil
 }
 
+func (r *BookRepository) Create(ctx context.Context, title, author, description, coverURL, audioURL string, genreID *int64) (*domain.Book, error) {
+	b := &domain.Book{}
+
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO books (title, author, description, cover_url, audio_url, genre_id)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, title, author, COALESCE(description, ''), COALESCE(cover_url, ''),
+		          COALESCE(audio_url, ''), genre_id, created_at`,
+		title, author, description, coverURL, audioURL, genreID,
+	).Scan(&b.ID, &b.Title, &b.Author, &b.Description, &b.CoverURL, &b.AudioURL, &b.GenreID, &b.CreatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("create book: %w", err)
+	}
+
+	return b, nil
+}
+
+func (r *BookRepository) Delete(ctx context.Context, id int64) error {
+	_, err := r.db.Exec(ctx, `DELETE FROM books WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete book: %w", err)
+	}
+	return nil
+}
+
 func (r *BookRepository) FindByID(ctx context.Context, id int64) (*domain.Book, error) {
 	b := &domain.Book{}
 

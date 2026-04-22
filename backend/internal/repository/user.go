@@ -27,9 +27,9 @@ func (r *UserRepository) Create(ctx context.Context, email, password string) (*d
 
 	err := r.db.QueryRow(ctx,
 		`INSERT INTO users (email, password) VALUES ($1, $2)
-		 RETURNING id, email, password, created_at`,
+		 RETURNING id, email, password, role, created_at`,
 		email, password,
-	).Scan(&user.ID, &user.Email, &user.Password, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &user.Password, &user.Role, &user.CreatedAt)
 
 	if err != nil {
 		if err.Error() == `ERROR: duplicate key value violates unique constraint "users_email_key" (SQLSTATE 23505)` {
@@ -45,9 +45,9 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain
 	user := &domain.User{}
 
 	err := r.db.QueryRow(ctx,
-		`SELECT id, email, password, created_at FROM users WHERE email = $1`,
+		`SELECT id, email, password, role, created_at FROM users WHERE email = $1`,
 		email,
-	).Scan(&user.ID, &user.Email, &user.Password, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &user.Password, &user.Role, &user.CreatedAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
