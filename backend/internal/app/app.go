@@ -32,7 +32,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) *App {
 	bookRepo := repository.NewBookRepository(db)
 	genreRepo := repository.NewGenreRepository(db)
 	bookHandler := handler.NewBookHandler(bookRepo, genreRepo, logger)
-	adminHandler := handler.NewAdminHandler(bookRepo, logger, cfg.GoogleBooksKey)
+	adminHandler := handler.NewAdminHandler(bookRepo, logger, cfg.GoogleBooksKey, "./static")
 
 	router := newRouter(authHandler, bookHandler, adminHandler, cfg.JWT.Secret)
 
@@ -75,6 +75,8 @@ func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandle
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Heartbeat("/health"))
 
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", authHandler.Register)
 		r.Post("/auth/login", authHandler.Login)
@@ -88,6 +90,7 @@ func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandle
 			r.Use(middleware.AdminOnly)
 			r.Post("/admin/books", adminHandler.AddBook)
 			r.Put("/admin/books/{id}", adminHandler.UpdateBook)
+			r.Post("/admin/books/{id}/upload-audio", adminHandler.UploadAudio)
 			r.Delete("/admin/books/{id}", adminHandler.DeleteBook)
 		})
 	})

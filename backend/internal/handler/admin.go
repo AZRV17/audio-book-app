@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -19,10 +22,11 @@ type AdminHandler struct {
 	bookRepo       *repository.BookRepository
 	logger         *slog.Logger
 	googleBooksKey string
+	staticDir      string
 }
 
-func NewAdminHandler(bookRepo *repository.BookRepository, logger *slog.Logger, googleBooksKey string) *AdminHandler {
-	return &AdminHandler{bookRepo: bookRepo, logger: logger, googleBooksKey: googleBooksKey}
+func NewAdminHandler(bookRepo *repository.BookRepository, logger *slog.Logger, googleBooksKey, staticDir string) *AdminHandler {
+	return &AdminHandler{bookRepo: bookRepo, logger: logger, googleBooksKey: googleBooksKey, staticDir: staticDir}
 }
 
 type addBookRequest struct {
@@ -61,7 +65,7 @@ func isCyrillic(s string) bool {
 }
 
 func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title, author string) (resAuthor, description, coverURL string) {
-	query := "intitle:" + title + "+language:rus"
+	query := "intitle:" + title
 	if author != "" {
 		query += "+inauthor:" + author
 	}
@@ -208,4 +212,56 @@ func (h *AdminHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AdminHandler) UploadAudio(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "Файл слишком большой (макс. 50MB)")
+		return
+	}
+
+	file, _, err := r.FormFile("audio")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Файл не найден в запросе")
+		return
+	}
+	defer file.Close()
+
+	dir := filepath.Join(h.staticDir, "audio")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		h.logger.Error("mkdir failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	filename := fmt.Sprintf("%d.mp3", id)
+	dst, err := os.Create(filepath.Join(dir, filename))
+	if err != nil {
+		h.logger.Error("create file failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		h.logger.Error("write file failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	audioURL := fmt.Sprintf("/static/audio/%s", filename)
+	book, err := h.bookRepo.UpdateAudioURL(r.Context(), id, audioURL)
+	if err != nil {
+		h.logger.Error("update audio url failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, book)
 }
