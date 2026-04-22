@@ -26,10 +26,13 @@ func NewAdminHandler(bookRepo *repository.BookRepository, logger *slog.Logger, g
 }
 
 type addBookRequest struct {
-	Title    string `json:"title"`
-	Author   string `json:"author"`
-	AudioURL string `json:"audio_url"`
-	GenreID  *int64 `json:"genre_id"`
+	Title       string `json:"title"`
+	Author      string `json:"author"`
+	Description string `json:"description"`
+	CoverURL    string `json:"cover_url"`
+	AudioURL    string `json:"audio_url"`
+	GenreID     *int64 `json:"genre_id"`
+	SkipGoogle  bool   `json:"skip_google"`
 }
 
 type googleBooksResponse struct {
@@ -45,8 +48,20 @@ type googleBooksResponse struct {
 	} `json:"items"`
 }
 
+func isCyrillic(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r >= 0x0400 && r <= 0x04FF {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title, author string) (resAuthor, description, coverURL string) {
-	query := "intitle:" + title
+	query := "intitle:" + title + "+language:rus"
 	if author != "" {
 		query += "+inauthor:" + author
 	}
@@ -102,7 +117,9 @@ func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title, author strin
 	if len(info.Authors) > 0 {
 		resAuthor = info.Authors[0]
 	}
-	description = info.Description
+	if isCyrillic(info.Description) {
+		description = info.Description
+	}
 	coverURL = info.ImageLinks.Thumbnail
 	if coverURL != "" {
 		coverURL = "https" + coverURL[4:]
@@ -125,13 +142,18 @@ func (h *AdminHandler) AddBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, description, coverURL := h.fetchGoogleBooks(r.Context(), req.Title, req.Author)
-	if author == "" && description == "" && coverURL == "" {
-		writeError(w, http.StatusBadGateway, "Не удалось получить данные из Google Books, попробуйте позже")
-		return
-	}
-	if req.Author != "" {
-		author = req.Author
+	var author, description, coverURL string
+	if req.SkipGoogle {
+		author, description, coverURL = req.Author, req.Description, req.CoverURL
+	} else {
+		author, description, coverURL = h.fetchGoogleBooks(r.Context(), req.Title, req.Author)
+		if author == "" && coverURL == "" {
+			writeError(w, http.StatusBadGateway, "Не удалось получить данные из Google Books, попробуйте позже")
+			return
+		}
+		if req.Author != "" {
+			author = req.Author
+		}
 	}
 
 	book, err := h.bookRepo.Create(r.Context(), req.Title, author, description, coverURL, req.AudioURL, req.GenreID)
@@ -142,6 +164,34 @@ func (h *AdminHandler) AddBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, book)
+}
+
+func (h *AdminHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+
+	var req addBookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный запрос")
+		return
+	}
+
+	if req.Title == "" {
+		writeError(w, http.StatusBadRequest, "Название книги обязательно")
+		return
+	}
+
+	book, err := h.bookRepo.Update(r.Context(), id, req.Title, req.Author, req.Description, req.CoverURL, req.AudioURL, req.GenreID)
+	if err != nil {
+		h.logger.Error("update book failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, book)
 }
 
 func (h *AdminHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {

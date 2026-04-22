@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { addBook, deleteBook } from '../../api/admin'
+import { addBook, updateBook, deleteBook } from '../../api/admin'
 import { getBooks, getGenres } from '../../api/books'
+
+const emptyForm = { title: '', author: '', description: '', cover_url: '', audio_url: '', genre_id: '' }
 
 export default function AdminPage() {
   const [books, setBooks] = useState([])
   const [genres, setGenres] = useState([])
-  const [form, setForm] = useState({ title: '', author: '', audio_url: '', genre_id: '' })
+  const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState(null)
+  const [manualMode, setManualMode] = useState(false)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -14,25 +18,63 @@ export default function AdminPage() {
     getGenres().then(({ data }) => setGenres(data))
   }, [])
 
-  const handleAdd = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
       const payload = {
         title: form.title,
         author: form.author,
+        description: form.description,
+        cover_url: form.cover_url,
         audio_url: form.audio_url,
         genre_id: form.genre_id ? Number(form.genre_id) : null,
+        skip_google: manualMode,
       }
-      const { data } = await addBook(payload)
-      setBooks((prev) => [data, ...prev])
-      setForm({ title: '', author: '', audio_url: '', genre_id: '' })
-      toast.success(`Книга "${data.title}" добавлена`)
-    } catch {
-      toast.error('Не удалось добавить книгу')
+
+      if (editingId) {
+        const { data } = await updateBook(editingId, payload)
+        setBooks((prev) => prev.map((b) => (b.id === editingId ? data : b)))
+        toast.success(`Книга "${data.title}" обновлена`)
+        setEditingId(null)
+      } else {
+        const { data } = await addBook(payload)
+        setBooks((prev) => [data, ...prev])
+        toast.success(`Книга "${data.title}" добавлена`)
+        setManualMode(false)
+      }
+      setForm(emptyForm)
+    } catch (err) {
+      const msg = err?.response?.data?.error
+      if (!editingId && err?.response?.status === 502) {
+        toast.error('Google Books недоступен — заполните данные вручную')
+        setManualMode(true)
+      } else {
+        toast.error(msg || (editingId ? 'Не удалось обновить книгу' : 'Не удалось добавить книгу'))
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleEdit = (book) => {
+    setEditingId(book.id)
+    setManualMode(false)
+    setForm({
+      title: book.title,
+      author: book.author || '',
+      description: book.description || '',
+      cover_url: book.cover_url || '',
+      audio_url: book.audio_url || '',
+      genre_id: book.genre_id ? String(book.genre_id) : '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancel = () => {
+    setEditingId(null)
+    setManualMode(false)
+    setForm(emptyForm)
   }
 
   const handleDelete = async (id, title) => {
@@ -45,14 +87,23 @@ export default function AdminPage() {
     }
   }
 
+  const showExtraFields = editingId || manualMode
+
   return (
     <div className="bg-stone-50 min-h-[calc(100vh-57px)] px-4 py-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-stone-900 mb-8">Панель администратора</h1>
 
         <div className="bg-white border border-stone-200 rounded-xl shadow-sm p-6 mb-8">
-          <h2 className="text-xl font-semibold text-stone-900 mb-4">Добавить книгу</h2>
-          <form onSubmit={handleAdd} className="space-y-4">
+          <h2 className="text-xl font-semibold text-stone-900 mb-4">
+            {editingId ? 'Редактировать книгу' : manualMode ? 'Добавить книгу вручную' : 'Добавить книгу'}
+          </h2>
+          {manualMode && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-amber-800 text-sm">
+              Google Books недоступен — заполните данные вручную
+            </div>
+          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-stone-600 text-sm mb-1">Название</label>
               <input
@@ -63,19 +114,45 @@ export default function AdminPage() {
                 placeholder="Мастер и Маргарита"
                 className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
               />
-              <p className="text-stone-400 text-xs mt-1">Метаданные подтянутся автоматически из Google Books</p>
+              {!showExtraFields && <p className="text-stone-400 text-xs mt-1">Метаданные подтянутся автоматически из Google Books</p>}
             </div>
             <div>
-              <label className="block text-stone-600 text-sm mb-1">Автор <span className="text-stone-400">(необязательно)</span></label>
+              <label className="block text-stone-600 text-sm mb-1">
+                Автор {!showExtraFields && <span className="text-stone-400">(необязательно)</span>}
+              </label>
               <input
                 type="text"
+                required={manualMode}
                 value={form.author}
                 onChange={(e) => setForm({ ...form, author: e.target.value })}
                 placeholder="Лев Толстой"
                 className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
               />
-              <p className="text-stone-400 text-xs mt-1">Если не заполнено — подтянется из Google Books</p>
+              {!showExtraFields && <p className="text-stone-400 text-xs mt-1">Если не заполнено — подтянется из Google Books</p>}
             </div>
+            {showExtraFields && (
+              <>
+                <div>
+                  <label className="block text-stone-600 text-sm mb-1">Описание</label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    rows={4}
+                    className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-600 text-sm mb-1">Ссылка на обложку</label>
+                  <input
+                    type="text"
+                    value={form.cover_url}
+                    onChange={(e) => setForm({ ...form, cover_url: e.target.value })}
+                    placeholder="https://example.com/cover.jpg"
+                    className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
             <div>
               <label className="block text-stone-600 text-sm mb-1">Ссылка на аудио</label>
               <input
@@ -99,13 +176,24 @@ export default function AdminPage() {
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg font-medium transition-colors cursor-pointer"
-            >
-              {loading ? 'Добавление...' : 'Добавить книгу'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg font-medium transition-colors cursor-pointer"
+              >
+                {loading ? '...' : editingId ? 'Сохранить' : 'Добавить книгу'}
+              </button>
+              {(editingId || manualMode) && (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-6 py-2.5 rounded-lg font-medium transition-colors cursor-pointer"
+                >
+                  Отмена
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
@@ -113,7 +201,7 @@ export default function AdminPage() {
           <h2 className="text-xl font-semibold text-stone-900 mb-4">Книги ({books.length})</h2>
           <div className="space-y-3">
             {books.map((book) => (
-              <div key={book.id} className="flex items-center gap-4 p-3 border border-stone-100 rounded-lg">
+              <div key={book.id} className={`flex items-center gap-4 p-3 border rounded-lg ${editingId === book.id ? 'border-amber-300 bg-amber-50' : 'border-stone-100'}`}>
                 {book.cover_url && (
                   <img src={book.cover_url} alt={book.title} className="w-10 h-14 object-contain flex-shrink-0" />
                 )}
@@ -121,6 +209,12 @@ export default function AdminPage() {
                   <p className="text-stone-900 font-medium truncate">{book.title}</p>
                   <p className="text-stone-500 text-sm truncate">{book.author}</p>
                 </div>
+                <button
+                  onClick={() => handleEdit(book)}
+                  className="text-amber-600 hover:text-amber-700 text-sm px-3 py-1 border border-amber-200 hover:border-amber-400 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                >
+                  Изменить
+                </button>
                 <button
                   onClick={() => handleDelete(book.id, book.title)}
                   className="text-red-500 hover:text-red-700 text-sm px-3 py-1 border border-red-200 hover:border-red-400 rounded-lg transition-colors cursor-pointer flex-shrink-0"

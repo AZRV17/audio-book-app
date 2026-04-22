@@ -87,6 +87,7 @@ func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandle
 			r.Use(middleware.Auth(jwtSecret))
 			r.Use(middleware.AdminOnly)
 			r.Post("/admin/books", adminHandler.AddBook)
+			r.Put("/admin/books/{id}", adminHandler.UpdateBook)
 			r.Delete("/admin/books/{id}", adminHandler.DeleteBook)
 		})
 	})

@@ -65,6 +65,24 @@ func (r *BookRepository) Create(ctx context.Context, title, author, description,
 	return b, nil
 }
 
+func (r *BookRepository) Update(ctx context.Context, id int64, title, author, description, coverURL, audioURL string, genreID *int64) (*domain.Book, error) {
+	b := &domain.Book{}
+
+	err := r.db.QueryRow(ctx, `
+		UPDATE books SET title=$1, author=$2, description=$3, cover_url=$4, audio_url=$5, genre_id=$6
+		WHERE id=$7
+		RETURNING id, title, author, COALESCE(description, ''), COALESCE(cover_url, ''),
+		          COALESCE(audio_url, ''), genre_id, created_at`,
+		title, author, description, coverURL, audioURL, genreID, id,
+	).Scan(&b.ID, &b.Title, &b.Author, &b.Description, &b.CoverURL, &b.AudioURL, &b.GenreID, &b.CreatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("update book: %w", err)
+	}
+
+	return b, nil
+}
+
 func (r *BookRepository) Delete(ctx context.Context, id int64) error {
 	_, err := r.db.Exec(ctx, `DELETE FROM books WHERE id = $1`, id)
 	if err != nil {
