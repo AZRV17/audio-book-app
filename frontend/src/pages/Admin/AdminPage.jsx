@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { addBook, updateBook, deleteBook } from '../../api/admin'
+import { FiUpload, FiRefreshCw } from 'react-icons/fi'
+import { addBook, updateBook, uploadAudio, deleteBook } from '../../api/admin'
 import { getBooks, getGenres } from '../../api/books'
 
 const emptyForm = { title: '', author: '', description: '', cover_url: '', audio_url: '', genre_id: '' }
@@ -47,7 +48,7 @@ export default function AdminPage() {
     } catch (err) {
       const msg = err?.response?.data?.error
       if (!editingId && err?.response?.status === 502) {
-        toast.error('Google Books недоступен — заполните данные вручную')
+        toast.error('Google Books недоступен - заполните данные вручную')
         setManualMode(true)
       } else {
         toast.error(msg || (editingId ? 'Не удалось обновить книгу' : 'Не удалось добавить книгу'))
@@ -77,6 +78,16 @@ export default function AdminPage() {
     setForm(emptyForm)
   }
 
+  const handleUploadAudio = async (id, file) => {
+    try {
+      const { data } = await uploadAudio(id, file)
+      setBooks((prev) => prev.map((b) => (b.id === id ? data : b)))
+      toast.success('Аудиофайл загружен')
+    } catch {
+      toast.error('Не удалось загрузить аудиофайл')
+    }
+  }
+
   const handleDelete = async (id, title) => {
     try {
       await deleteBook(id)
@@ -100,7 +111,7 @@ export default function AdminPage() {
           </h2>
           {manualMode && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-amber-800 text-sm">
-              Google Books недоступен — заполните данные вручную
+              Google Books недоступен - заполните данные вручную
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,7 +122,7 @@ export default function AdminPage() {
                 required
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Мастер и Маргарита"
+                placeholder="Война и мир"
                 className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
               />
               {!showExtraFields && <p className="text-stone-400 text-xs mt-1">Метаданные подтянутся автоматически из Google Books</p>}
@@ -128,7 +139,7 @@ export default function AdminPage() {
                 placeholder="Лев Толстой"
                 className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
               />
-              {!showExtraFields && <p className="text-stone-400 text-xs mt-1">Если не заполнено — подтянется из Google Books</p>}
+              {!showExtraFields && <p className="text-stone-400 text-xs mt-1">Если не заполнено - подтянется из Google Books</p>}
             </div>
             {showExtraFields && (
               <>
@@ -170,7 +181,7 @@ export default function AdminPage() {
                 onChange={(e) => setForm({ ...form, genre_id: e.target.value })}
                 className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
               >
-                <option value="">— Без жанра —</option>
+                <option value="">- Без жанра -</option>
                 {genres.map((g) => (
                   <option key={g.id} value={g.id}>{g.name}</option>
                 ))}
@@ -209,6 +220,16 @@ export default function AdminPage() {
                   <p className="text-stone-900 font-medium truncate">{book.title}</p>
                   <p className="text-stone-500 text-sm truncate">{book.author}</p>
                 </div>
+                <label className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm px-3 py-1 border border-blue-200 hover:border-blue-400 rounded-lg transition-colors cursor-pointer flex-shrink-0">
+                  {book.audio_url ? <FiRefreshCw size={14} /> : <FiUpload size={14} />}
+                  Аудио
+                  <input
+                    type="file"
+                    accept="audio/mpeg,audio/mp3,.mp3"
+                    className="hidden"
+                    onChange={(e) => e.target.files[0] && handleUploadAudio(book.id, e.target.files[0])}
+                  />
+                </label>
                 <button
                   onClick={() => handleEdit(book)}
                   className="text-amber-600 hover:text-amber-700 text-sm px-3 py-1 border border-amber-200 hover:border-amber-400 rounded-lg transition-colors cursor-pointer flex-shrink-0"

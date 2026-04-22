@@ -37,9 +37,12 @@ services:
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
       NO_PROXY: www.googleapis.com,googleapis.com
       no_proxy: www.googleapis.com,googleapis.com
+    volumes:
+      - audio_files:/app/static/audio
     ports:
       - "${SERVER_PORT:-8080}:8080"
 
 volumes:
   postgres_data:
+  audio_files:
 
