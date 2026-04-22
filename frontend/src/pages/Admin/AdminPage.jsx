@@ -6,7 +6,7 @@ import { getBooks, getGenres } from '../../api/books'
 export default function AdminPage() {
   const [books, setBooks] = useState([])
   const [genres, setGenres] = useState([])
-  const [form, setForm] = useState({ title: '', audio_url: '', genre_id: '' })
+  const [form, setForm] = useState({ title: '', author: '', audio_url: '', genre_id: '' })
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -20,12 +20,13 @@ export default function AdminPage() {
     try {
       const payload = {
         title: form.title,
+        author: form.author,
         audio_url: form.audio_url,
         genre_id: form.genre_id ? Number(form.genre_id) : null,
       }
       const { data } = await addBook(payload)
       setBooks((prev) => [data, ...prev])
-      setForm({ title: '', audio_url: '', genre_id: '' })
+      setForm({ title: '', author: '', audio_url: '', genre_id: '' })
       toast.success(`Книга "${data.title}" добавлена`)
     } catch {
       toast.error('Не удалось добавить книгу')
@@ -63,6 +64,17 @@ export default function AdminPage() {
                 className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
               />
               <p className="text-stone-400 text-xs mt-1">Метаданные подтянутся автоматически из Google Books</p>
+            </div>
+            <div>
+              <label className="block text-stone-600 text-sm mb-1">Автор <span className="text-stone-400">(необязательно)</span></label>
+              <input
+                type="text"
+                value={form.author}
+                onChange={(e) => setForm({ ...form, author: e.target.value })}
+                placeholder="Лев Толстой"
+                className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
+              />
+              <p className="text-stone-400 text-xs mt-1">Если не заполнено — подтянется из Google Books</p>
             </div>
             <div>
               <label className="block text-stone-600 text-sm mb-1">Ссылка на аудио</label>

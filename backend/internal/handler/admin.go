@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -15,8 +16,8 @@ import (
 )
 
 type AdminHandler struct {
-	bookRepo      *repository.BookRepository
-	logger        *slog.Logger
+	bookRepo       *repository.BookRepository
+	logger         *slog.Logger
 	googleBooksKey string
 }
 
@@ -25,9 +26,10 @@ func NewAdminHandler(bookRepo *repository.BookRepository, logger *slog.Logger, g
 }
 
 type addBookRequest struct {
-	Title    string  `json:"title"`
-	AudioURL string  `json:"audio_url"`
-	GenreID  *int64  `json:"genre_id"`
+	Title    string `json:"title"`
+	Author   string `json:"author"`
+	AudioURL string `json:"audio_url"`
+	GenreID  *int64 `json:"genre_id"`
 }
 
 type googleBooksResponse struct {
@@ -43,10 +45,14 @@ type googleBooksResponse struct {
 	} `json:"items"`
 }
 
-func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title string) (author, description, coverURL string) {
+func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title, author string) (resAuthor, description, coverURL string) {
+	query := "intitle:" + title
+	if author != "" {
+		query += "+inauthor:" + author
+	}
 	apiURL := fmt.Sprintf(
-		"https://www.googleapis.com/books/v1/volumes?q=%s&key=%s&maxResults=1",
-		url.QueryEscape(title), h.googleBooksKey,
+		"https://www.googleapis.com/books/v1/volumes?q=%s&key=%s&maxResults=1&langRestrict=ru",
+		url.QueryEscape(query), h.googleBooksKey,
 	)
 
 	h.logger.Info("google books request", "url", apiURL)
@@ -57,14 +63,28 @@ func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title string) (auth
 		return "", "", ""
 	}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		h.logger.Error("google books: http request failed", "error", err)
+	var resp *http.Response
+	for attempt := 0; attempt < 3; attempt++ {
+		var err error
+		resp, err = http.DefaultClient.Do(req.Clone(ctx))
+		if err != nil {
+			h.logger.Error("google books: http request failed", "error", err)
+			return "", "", ""
+		}
+		h.logger.Info("google books response", "status", resp.StatusCode, "attempt", attempt+1)
+		if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+		resp.Body.Close()
+		resp = nil
+		if attempt < 2 {
+			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
+		}
+	}
+	if resp == nil {
 		return "", "", ""
 	}
 	defer resp.Body.Close()
-
-	h.logger.Info("google books response", "status", resp.StatusCode)
 
 	var result googleBooksResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -80,7 +100,7 @@ func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title string) (auth
 
 	info := result.Items[0].VolumeInfo
 	if len(info.Authors) > 0 {
-		author = info.Authors[0]
+		resAuthor = info.Authors[0]
 	}
 	description = info.Description
 	coverURL = info.ImageLinks.Thumbnail
@@ -88,9 +108,9 @@ func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title string) (auth
 		coverURL = "https" + coverURL[4:]
 	}
 
-	h.logger.Info("google books result", "author", author, "cover", coverURL)
+	h.logger.Info("google books result", "author", resAuthor, "cover", coverURL)
 
-	return author, description, coverURL
+	return resAuthor, description, coverURL
 }
 
 func (h *AdminHandler) AddBook(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +125,14 @@ func (h *AdminHandler) AddBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, description, coverURL := h.fetchGoogleBooks(r.Context(), req.Title)
+	author, description, coverURL := h.fetchGoogleBooks(r.Context(), req.Title, req.Author)
+	if author == "" && description == "" && coverURL == "" {
+		writeError(w, http.StatusBadGateway, "Не удалось получить данные из Google Books, попробуйте позже")
+		return
+	}
+	if req.Author != "" {
+		author = req.Author
+	}
 
 	book, err := h.bookRepo.Create(r.Context(), req.Title, author, description, coverURL, req.AudioURL, req.GenreID)
 	if err != nil {
