@@ -7,11 +7,12 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/AZRV17/audio-book-app/internal/config"
 	"github.com/AZRV17/audio-book-app/internal/handler"
+	"github.com/AZRV17/audio-book-app/internal/middleware"
 	"github.com/AZRV17/audio-book-app/internal/repository"
 	"github.com/AZRV17/audio-book-app/internal/service"
 )
@@ -31,8 +32,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) *App {
 	bookRepo := repository.NewBookRepository(db)
 	genreRepo := repository.NewGenreRepository(db)
 	bookHandler := handler.NewBookHandler(bookRepo, genreRepo, logger)
+	adminHandler := handler.NewAdminHandler(bookRepo, logger, cfg.GoogleBooksKey)
 
-	router := newRouter(authHandler, bookHandler)
+	router := newRouter(authHandler, bookHandler, adminHandler, cfg.JWT.Secret)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
@@ -64,14 +66,14 @@ func (a *App) Stop(ctx context.Context) error {
 	return nil
 }
 
-func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandler) http.Handler {
+func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandler, adminHandler *handler.AdminHandler, jwtSecret string) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Heartbeat("/health"))
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP)
+	r.Use(chimiddleware.Logger)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.Heartbeat("/health"))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", authHandler.Register)
@@ -80,6 +82,13 @@ func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandle
 		r.Get("/books", bookHandler.GetBooks)
 		r.Get("/books/{id}", bookHandler.GetBook)
 		r.Get("/genres", bookHandler.GetGenres)
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Auth(jwtSecret))
+			r.Use(middleware.AdminOnly)
+			r.Post("/admin/books", adminHandler.AddBook)
+			r.Delete("/admin/books/{id}", adminHandler.DeleteBook)
+		})
 	})
 
 	return r

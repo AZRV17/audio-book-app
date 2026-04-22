@@ -34,6 +34,9 @@ services:
       SERVER_WRITE_TIMEOUT: ${SERVER_WRITE_TIMEOUT:-10s}
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-audiobookdb}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:-supersecretkey}
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+      NO_PROXY: www.googleapis.com,googleapis.com
+      no_proxy: www.googleapis.com,googleapis.com
     ports:
       - "${SERVER_PORT:-8080}:8080"
 
