@@ -34,7 +34,10 @@ func New(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) *App {
 	bookHandler := handler.NewBookHandler(bookRepo, genreRepo, logger)
 	adminHandler := handler.NewAdminHandler(bookRepo, logger, cfg.GoogleBooksKey, "./static")
 
-	router := newRouter(authHandler, bookHandler, adminHandler, cfg.JWT.Secret)
+	progressRepo := repository.NewProgressRepository(db)
+	progressHandler := handler.NewProgressHandler(progressRepo, logger)
+
+	router := newRouter(authHandler, bookHandler, adminHandler, progressHandler, cfg.JWT.Secret)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
@@ -66,7 +69,7 @@ func (a *App) Stop(ctx context.Context) error {
 	return nil
 }
 
-func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandler, adminHandler *handler.AdminHandler, jwtSecret string) http.Handler {
+func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandler, adminHandler *handler.AdminHandler, progressHandler *handler.ProgressHandler, jwtSecret string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.RequestID)
@@ -84,6 +87,12 @@ func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandle
 		r.Get("/books", bookHandler.GetBooks)
 		r.Get("/books/{id}", bookHandler.GetBook)
 		r.Get("/genres", bookHandler.GetGenres)
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Auth(jwtSecret))
+			r.Post("/progress", progressHandler.Save)
+			r.Get("/progress/{book_id}", progressHandler.Get)
+		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(jwtSecret))

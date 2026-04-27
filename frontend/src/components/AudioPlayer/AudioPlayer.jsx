@@ -6,7 +6,7 @@ import { formatDuration } from '../../utils/formatDuration'
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2]
 
 export default function AudioPlayer() {
-  const { currentBook, isPlaying, volume, playbackRate, pause, resume, stop, setVolume, setPlaybackRate, audioRef } = usePlayer()
+  const { currentBook, isPlaying, volume, playbackRate, error, startPosition, pause, resume, stop, setVolume, setPlaybackRate, audioRef } = usePlayer()
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
 
@@ -39,7 +39,13 @@ export default function AudioPlayer() {
         ref={audioRef}
         src={currentBook.audio_url}
         onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
-        onLoadedMetadata={(e) => setDuration(e.target.duration)}
+        onLoadedMetadata={(e) => {
+          setDuration(e.target.duration)
+          if (startPosition > 0) {
+            e.target.currentTime = startPosition
+            setCurrentTime(startPosition)
+          }
+        }}
         onCanPlay={() => { if (isPlaying) audioRef.current?.play().catch(() => {}) }}
         onEnded={stop}
       />

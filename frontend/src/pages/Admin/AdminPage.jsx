@@ -10,6 +10,7 @@ export default function AdminPage() {
   const [books, setBooks] = useState([])
   const [genres, setGenres] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const [audioFile, setAudioFile] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [manualMode, setManualMode] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -40,9 +41,19 @@ export default function AdminPage() {
         setEditingId(null)
       } else {
         const { data } = await addBook(payload)
-        setBooks((prev) => [data, ...prev])
-        toast.success(`Книга "${data.title}" добавлена`)
+        let book = data
+        if (audioFile) {
+          try {
+            const { data: updated } = await uploadAudio(data.id, audioFile)
+            book = updated
+          } catch {
+            toast.error('Книга добавлена, но не удалось загрузить аудиофайл')
+          }
+        }
+        setBooks((prev) => [book, ...prev])
+        toast.success(`Книга "${book.title}" добавлена`)
         setManualMode(false)
+        setAudioFile(null)
       }
       setForm(emptyForm)
     } catch (err) {
@@ -75,6 +86,7 @@ export default function AdminPage() {
   const handleCancel = () => {
     setEditingId(null)
     setManualMode(false)
+    setAudioFile(null)
     setForm(emptyForm)
   }
 
@@ -165,14 +177,28 @@ export default function AdminPage() {
               </>
             )}
             <div>
-              <label className="block text-stone-600 text-sm mb-1">Ссылка на аудио</label>
-              <input
-                type="text"
-                value={form.audio_url}
-                onChange={(e) => setForm({ ...form, audio_url: e.target.value })}
-                placeholder="https://example.com/audio.mp3"
-                className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
-              />
+              <label className="block text-stone-600 text-sm mb-1">Аудио</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={form.audio_url}
+                  onChange={(e) => { setForm({ ...form, audio_url: e.target.value }); setAudioFile(null) }}
+                  placeholder="https://example.com/audio.mp3"
+                  className="flex-1 bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
+                  disabled={!!audioFile}
+                />
+                <label className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm px-3 py-2 border border-blue-200 hover:border-blue-400 rounded-lg transition-colors cursor-pointer flex-shrink-0">
+                  <FiUpload size={14} />
+                  {audioFile ? audioFile.name.slice(0, 15) + '…' : 'Файл'}
+                  <input
+                    type="file"
+                    accept="audio/mpeg,audio/mp3,.mp3"
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files[0]) { setAudioFile(e.target.files[0]); setForm({ ...form, audio_url: '' }) } }}
+                  />
+                </label>
+              </div>
+              <p className="text-stone-400 text-xs mt-1">Укажите ссылку или загрузите MP3-файл</p>
             </div>
             <div>
               <label className="block text-stone-600 text-sm mb-1">Жанр</label>
