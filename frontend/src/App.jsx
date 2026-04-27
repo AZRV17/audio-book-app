@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext'
 import { PlayerProvider } from './context/PlayerContext'
 import Navbar from './components/Navbar/Navbar'
 import AudioPlayer from './components/AudioPlayer/AudioPlayer'
+import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute'
 import HomePage from './pages/Home/HomePage'
 import CatalogPage from './pages/Catalog/CatalogPage'
 import AdminPage from './pages/Admin/AdminPage'
@@ -21,7 +22,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/catalog" element={<CatalogPage />} />
-            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/admin" element={<ProtectedRoute role="admin"><AdminPage /></ProtectedRoute>} />
             <Route path="/books/:id" element={<BookDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
