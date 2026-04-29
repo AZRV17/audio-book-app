@@ -18,3 +18,10 @@ type Genre struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 }
+
+type BookPart struct {
+	ID       int64  `json:"id"`
+	BookID   int64  `json:"book_id"`
+	Position int    `json:"position"`
+	FilePath string `json:"file_path"`
+}

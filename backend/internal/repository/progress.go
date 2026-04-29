@@ -15,13 +15,13 @@ func NewProgressRepository(db *pgxpool.Pool) *ProgressRepository {
 	return &ProgressRepository{db: db}
 }
 
-func (r *ProgressRepository) Save(ctx context.Context, userID, bookID int64, position float64) error {
+func (r *ProgressRepository) Save(ctx context.Context, userID, bookID int64, position float64, partIndex int) error {
 	_, err := r.db.Exec(ctx, `
-		INSERT INTO listening_progress (user_id, book_id, position, updated_at)
-		VALUES ($1, $2, $3, NOW())
+		INSERT INTO listening_progress (user_id, book_id, position, part_index, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
 		ON CONFLICT (user_id, book_id) DO UPDATE
-		SET position = EXCLUDED.position, updated_at = NOW()`,
-		userID, bookID, position,
+		SET position = EXCLUDED.position, part_index = EXCLUDED.part_index, updated_at = NOW()`,
+		userID, bookID, position, partIndex,
 	)
 	if err != nil {
 		return fmt.Errorf("save progress: %w", err)
@@ -29,14 +29,19 @@ func (r *ProgressRepository) Save(ctx context.Context, userID, bookID int64, pos
 	return nil
 }
 
-func (r *ProgressRepository) Get(ctx context.Context, userID, bookID int64) (float64, error) {
-	var position float64
+type Progress struct {
+	Position  float64 `json:"position"`
+	PartIndex int     `json:"part_index"`
+}
+
+func (r *ProgressRepository) Get(ctx context.Context, userID, bookID int64) (*Progress, error) {
+	var p Progress
 	err := r.db.QueryRow(ctx, `
-		SELECT position FROM listening_progress WHERE user_id=$1 AND book_id=$2`,
+		SELECT position, part_index FROM listening_progress WHERE user_id=$1 AND book_id=$2`,
 		userID, bookID,
-	).Scan(&position)
+	).Scan(&p.Position, &p.PartIndex)
 	if err != nil {
-		return 0, nil
+		return &Progress{}, nil
 	}
-	return position, nil
+	return &p, nil
 }

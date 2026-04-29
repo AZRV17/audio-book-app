@@ -9,4 +9,12 @@ export const uploadAudio = (id, file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 }
+
+export const uploadZip = (id, file) => {
+  const form = new FormData()
+  form.append('zip', file)
+  return client.post(`/admin/books/${id}/upload-zip`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
 export const deleteBook = (id) => client.delete(`/admin/books/${id}`)

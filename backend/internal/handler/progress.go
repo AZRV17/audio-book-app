@@ -29,15 +29,16 @@ func (h *ProgressHandler) Save(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		BookID   int64   `json:"book_id"`
-		Position float64 `json:"position"`
+		BookID    int64   `json:"book_id"`
+		Position  float64 `json:"position"`
+		PartIndex int     `json:"part_index"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Некорректный запрос")
 		return
 	}
 
-	if err := h.progressRepo.Save(r.Context(), userID, req.BookID, req.Position); err != nil {
+	if err := h.progressRepo.Save(r.Context(), userID, req.BookID, req.Position, req.PartIndex); err != nil {
 		h.logger.Error("save progress failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
 		return
@@ -59,12 +60,12 @@ func (h *ProgressHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	position, err := h.progressRepo.Get(r.Context(), userID, bookID)
+	progress, err := h.progressRepo.Get(r.Context(), userID, bookID)
 	if err != nil {
 		h.logger.Error("get progress failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]float64{"position": position})
+	writeJSON(w, http.StatusOK, progress)
 }

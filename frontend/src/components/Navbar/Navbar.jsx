@@ -15,6 +15,9 @@ export default function Navbar() {
       <Link to="/" className="text-xl font-bold text-amber-600">AudioBooks</Link>
       <div className="flex items-center gap-4">
         <Link to="/catalog" className="text-stone-700 hover:text-amber-600 font-semibold transition-colors">Каталог</Link>
+        {user && (
+          <Link to="/favorites" className="text-stone-700 hover:text-amber-600 font-semibold transition-colors">Избранное</Link>
+        )}
         {user?.role === 'admin' && (
           <Link to="/admin" className="text-stone-700 hover:text-amber-600 font-semibold transition-colors">Админка</Link>
         )}
