@@ -1,0 +1,267 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/AZRV17/audio-book-app/internal/repository"
+)
+
+type AdminHandler struct {
+	bookRepo       *repository.BookRepository
+	logger         *slog.Logger
+	googleBooksKey string
+	staticDir      string
+}
+
+func NewAdminHandler(bookRepo *repository.BookRepository, logger *slog.Logger, googleBooksKey, staticDir string) *AdminHandler {
+	return &AdminHandler{bookRepo: bookRepo, logger: logger, googleBooksKey: googleBooksKey, staticDir: staticDir}
+}
+
+type addBookRequest struct {
+	Title       string `json:"title"`
+	Author      string `json:"author"`
+	Description string `json:"description"`
+	CoverURL    string `json:"cover_url"`
+	AudioURL    string `json:"audio_url"`
+	GenreID     *int64 `json:"genre_id"`
+	SkipGoogle  bool   `json:"skip_google"`
+}
+
+type googleBooksResponse struct {
+	Items []struct {
+		VolumeInfo struct {
+			Title       string   `json:"title"`
+			Authors     []string `json:"authors"`
+			Description string   `json:"description"`
+			ImageLinks  struct {
+				Thumbnail string `json:"thumbnail"`
+			} `json:"imageLinks"`
+		} `json:"volumeInfo"`
+	} `json:"items"`
+}
+
+func isCyrillic(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r >= 0x0400 && r <= 0x04FF {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *AdminHandler) fetchGoogleBooks(ctx context.Context, title, author string) (resAuthor, description, coverURL string) {
+	query := "intitle:" + title
+	if author != "" {
+		query += "+inauthor:" + author
+	}
+	apiURL := fmt.Sprintf(
+		"https://www.googleapis.com/books/v1/volumes?q=%s&key=%s&maxResults=1&langRestrict=ru",
+		url.QueryEscape(query), h.googleBooksKey,
+	)
+
+	h.logger.Info("google books request", "url", apiURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		h.logger.Error("google books: create request failed", "error", err)
+		return "", "", ""
+	}
+
+	var resp *http.Response
+	for attempt := 0; attempt < 3; attempt++ {
+		var err error
+		resp, err = http.DefaultClient.Do(req.Clone(ctx))
+		if err != nil {
+			h.logger.Error("google books: http request failed", "error", err)
+			return "", "", ""
+		}
+		h.logger.Info("google books response", "status", resp.StatusCode, "attempt", attempt+1)
+		if resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+		resp.Body.Close()
+		resp = nil
+		if attempt < 2 {
+			time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
+		}
+	}
+	if resp == nil {
+		return "", "", ""
+	}
+	defer resp.Body.Close()
+
+	var result googleBooksResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		h.logger.Error("google books: decode failed", "error", err)
+		return "", "", ""
+	}
+
+	h.logger.Info("google books items", "count", len(result.Items))
+
+	if len(result.Items) == 0 {
+		return "", "", ""
+	}
+
+	info := result.Items[0].VolumeInfo
+	if len(info.Authors) > 0 {
+		resAuthor = info.Authors[0]
+	}
+	if isCyrillic(info.Description) {
+		description = info.Description
+	}
+	coverURL = info.ImageLinks.Thumbnail
+	if coverURL != "" {
+		coverURL = "https" + coverURL[4:]
+	}
+
+	h.logger.Info("google books result", "author", resAuthor, "cover", coverURL)
+
+	return resAuthor, description, coverURL
+}
+
+func (h *AdminHandler) AddBook(w http.ResponseWriter, r *http.Request) {
+	var req addBookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный запрос")
+		return
+	}
+
+	if req.Title == "" {
+		writeError(w, http.StatusBadRequest, "Название книги обязательно")
+		return
+	}
+
+	var author, description, coverURL string
+	if req.SkipGoogle {
+		author, description, coverURL = req.Author, req.Description, req.CoverURL
+	} else {
+		author, description, coverURL = h.fetchGoogleBooks(r.Context(), req.Title, req.Author)
+		if author == "" && coverURL == "" {
+			writeError(w, http.StatusBadGateway, "Не удалось получить данные из Google Books, попробуйте позже")
+			return
+		}
+		if req.Author != "" {
+			author = req.Author
+		}
+	}
+
+	book, err := h.bookRepo.Create(r.Context(), req.Title, author, description, coverURL, req.AudioURL, req.GenreID)
+	if err != nil {
+		h.logger.Error("add book failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, book)
+}
+
+func (h *AdminHandler) UpdateBook(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+
+	var req addBookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный запрос")
+		return
+	}
+
+	if req.Title == "" {
+		writeError(w, http.StatusBadRequest, "Название книги обязательно")
+		return
+	}
+
+	book, err := h.bookRepo.Update(r.Context(), id, req.Title, req.Author, req.Description, req.CoverURL, req.AudioURL, req.GenreID)
+	if err != nil {
+		h.logger.Error("update book failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, book)
+}
+
+func (h *AdminHandler) DeleteBook(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+
+	if err := h.bookRepo.Delete(r.Context(), id); err != nil {
+		h.logger.Error("delete book failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AdminHandler) UploadAudio(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Некорректный ID")
+		return
+	}
+
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "Файл слишком большой (макс. 50MB)")
+		return
+	}
+
+	file, _, err := r.FormFile("audio")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Файл не найден в запросе")
+		return
+	}
+	defer file.Close()
+
+	dir := filepath.Join(h.staticDir, "audio")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		h.logger.Error("mkdir failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	filename := fmt.Sprintf("%d.mp3", id)
+	dst, err := os.Create(filepath.Join(dir, filename))
+	if err != nil {
+		h.logger.Error("create file failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		h.logger.Error("write file failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	audioURL := fmt.Sprintf("/static/audio/%s", filename)
+	book, err := h.bookRepo.UpdateAudioURL(r.Context(), id, audioURL)
+	if err != nil {
+		h.logger.Error("update audio url failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Внутренняя ошибка сервера")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, book)
+}
