@@ -15,6 +15,7 @@ export const uploadZip = (id, file) => {
   form.append('zip', file)
   return client.post(`/admin/books/${id}/upload-zip`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 0,
   })
 }
 export const deleteBook = (id) => client.delete(`/admin/books/${id}`)
