@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { FiUpload, FiRefreshCw } from 'react-icons/fi'
-import { addBook, updateBook, uploadAudio, deleteBook } from '../../api/admin'
+import { addBook, updateBook, uploadAudio, uploadZip, deleteBook } from '../../api/admin'
 import { getBooks, getGenres } from '../../api/books'
 
 const emptyForm = { title: '', author: '', description: '', cover_url: '', audio_url: '', genre_id: '' }
@@ -97,6 +97,15 @@ export default function AdminPage() {
       toast.success('Аудиофайл загружен')
     } catch {
       toast.error('Не удалось загрузить аудиофайл')
+    }
+  }
+
+  const handleUploadZip = async (id, file) => {
+    try {
+      const { data } = await uploadZip(id, file)
+      toast.success(`ZIP загружен: ${data.parts} частей`)
+    } catch {
+      toast.error('Не удалось загрузить ZIP-архив')
     }
   }
 
@@ -248,12 +257,22 @@ export default function AdminPage() {
                 </div>
                 <label className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm px-3 py-1 border border-blue-200 hover:border-blue-400 rounded-lg transition-colors cursor-pointer flex-shrink-0">
                   {book.audio_url ? <FiRefreshCw size={14} /> : <FiUpload size={14} />}
-                  Аудио
+                  MP3
                   <input
                     type="file"
                     accept="audio/mpeg,audio/mp3,.mp3"
                     className="hidden"
                     onChange={(e) => e.target.files[0] && handleUploadAudio(book.id, e.target.files[0])}
+                  />
+                </label>
+                <label className="flex items-center gap-1.5 text-violet-600 hover:text-violet-700 text-sm px-3 py-1 border border-violet-200 hover:border-violet-400 rounded-lg transition-colors cursor-pointer flex-shrink-0">
+                  <FiUpload size={14} />
+                  ZIP
+                  <input
+                    type="file"
+                    accept=".zip,application/zip"
+                    className="hidden"
+                    onChange={(e) => e.target.files[0] && handleUploadZip(book.id, e.target.files[0])}
                   />
                 </label>
                 <button

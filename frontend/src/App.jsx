@@ -9,6 +9,7 @@ import HomePage from './pages/Home/HomePage'
 import CatalogPage from './pages/Catalog/CatalogPage'
 import AdminPage from './pages/Admin/AdminPage'
 import BookDetailPage from './pages/Book/BookDetailPage'
+import FavoritesPage from './pages/Favorites/FavoritesPage'
 import LoginPage from './pages/Login/LoginPage'
 import RegisterPage from './pages/Register/RegisterPage'
 
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/catalog" element={<CatalogPage />} />
             <Route path="/admin" element={<ProtectedRoute role="admin"><AdminPage /></ProtectedRoute>} />
             <Route path="/books/:id" element={<BookDetailPage />} />
+            <Route path="/favorites" element={<ProtectedRoute><FavoritesPage /></ProtectedRoute>} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
           </Routes>

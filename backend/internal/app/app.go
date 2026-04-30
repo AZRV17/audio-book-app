@@ -37,7 +37,13 @@ func New(cfg *config.Config, logger *slog.Logger, db *pgxpool.Pool) *App {
 	progressRepo := repository.NewProgressRepository(db)
 	progressHandler := handler.NewProgressHandler(progressRepo, logger)
 
-	router := newRouter(authHandler, bookHandler, adminHandler, progressHandler, cfg.JWT.Secret)
+	favRepo := repository.NewFavoritesRepository(db)
+	favHandler := handler.NewFavoritesHandler(favRepo, logger)
+
+	partsRepo := repository.NewBookPartsRepository(db)
+	partsHandler := handler.NewBookPartsHandler(partsRepo, logger, "./static")
+
+	router := newRouter(authHandler, bookHandler, adminHandler, progressHandler, favHandler, partsHandler, cfg.JWT.Secret)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
@@ -69,7 +75,7 @@ func (a *App) Stop(ctx context.Context) error {
 	return nil
 }
 
-func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandler, adminHandler *handler.AdminHandler, progressHandler *handler.ProgressHandler, jwtSecret string) http.Handler {
+func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandler, adminHandler *handler.AdminHandler, progressHandler *handler.ProgressHandler, favHandler *handler.FavoritesHandler, partsHandler *handler.BookPartsHandler, jwtSecret string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.RequestID)
@@ -86,12 +92,17 @@ func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandle
 
 		r.Get("/books", bookHandler.GetBooks)
 		r.Get("/books/{id}", bookHandler.GetBook)
+		r.Get("/books/{id}/parts", partsHandler.GetParts)
 		r.Get("/genres", bookHandler.GetGenres)
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(jwtSecret))
 			r.Post("/progress", progressHandler.Save)
 			r.Get("/progress/{book_id}", progressHandler.Get)
+			r.Get("/favorites", favHandler.List)
+			r.Get("/favorites/{book_id}", favHandler.Check)
+			r.Post("/favorites/{book_id}", favHandler.Add)
+			r.Delete("/favorites/{book_id}", favHandler.Remove)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -100,6 +111,7 @@ func newRouter(authHandler *handler.AuthHandler, bookHandler *handler.BookHandle
 			r.Post("/admin/books", adminHandler.AddBook)
 			r.Put("/admin/books/{id}", adminHandler.UpdateBook)
 			r.Post("/admin/books/{id}/upload-audio", adminHandler.UploadAudio)
+			r.Post("/admin/books/{id}/upload-zip", partsHandler.UploadZip)
 			r.Delete("/admin/books/{id}", adminHandler.DeleteBook)
 		})
 	})
