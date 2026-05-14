@@ -31,9 +31,9 @@ export default function CatalogPage() {
   }, [search, genreId])
 
   return (
-    <div className="bg-stone-50 min-h-[calc(100vh-57px)] px-4 py-6">
+    <div className="bg-stone-50 min-h-[calc(100vh-65px)] px-3 py-5 pb-28 sm:min-h-[calc(100vh-57px)] sm:px-4 sm:py-6">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-stone-900 mb-6">Каталог</h1>
+        <h1 className="text-2xl font-bold text-stone-900 mb-5 sm:text-3xl sm:mb-6">Каталог</h1>
 
         <input
           type="text"
@@ -43,10 +43,10 @@ export default function CatalogPage() {
           className="w-full bg-white border border-stone-300 rounded-lg px-4 py-2 text-stone-900 focus:border-amber-500 focus:outline-none mb-4"
         />
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="-mx-3 mb-6 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
           <button
             onClick={() => setGenreId('')}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${genreId === '' ? 'bg-amber-600 text-white' : 'bg-white border border-stone-300 text-stone-700 hover:border-amber-500 hover:text-amber-600'}`}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${genreId === '' ? 'bg-amber-600 text-white' : 'bg-white border border-stone-300 text-stone-700 hover:border-amber-500 hover:text-amber-600'}`}
           >
             Все
           </button>
@@ -54,7 +54,7 @@ export default function CatalogPage() {
             <button
               key={g.id}
               onClick={() => setGenreId(String(g.id))}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${genreId === String(g.id) ? 'bg-amber-600 text-white' : 'bg-white border border-stone-300 text-stone-700 hover:border-amber-500 hover:text-amber-600'}`}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${genreId === String(g.id) ? 'bg-amber-600 text-white' : 'bg-white border border-stone-300 text-stone-700 hover:border-amber-500 hover:text-amber-600'}`}
             >
               {g.name}
             </button>
@@ -66,7 +66,7 @@ export default function CatalogPage() {
         {!loading && !error && books.length === 0 && (
           <p className="text-stone-500">По вашему запросу ничего не найдено</p>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
           {books.map((book) => (
             <BookCard key={book.id} book={book} />
           ))}

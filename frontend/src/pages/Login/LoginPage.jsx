@@ -28,8 +28,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="bg-stone-50 min-h-[calc(100vh-57px)] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-white shadow-md rounded-xl p-8">
+    <div className="bg-stone-50 min-h-[calc(100vh-65px)] flex items-center justify-center px-4 py-8 sm:min-h-[calc(100vh-57px)]">
+      <div className="w-full max-w-sm bg-white shadow-md rounded-xl p-5 sm:p-8">
         <h1 className="text-2xl font-bold text-stone-900 mb-6 text-center">Вход</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
