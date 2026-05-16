@@ -122,12 +122,12 @@ export default function AdminPage() {
   const showExtraFields = editingId || manualMode
 
   return (
-    <div className="bg-stone-50 min-h-[calc(100vh-57px)] px-4 py-6">
+    <div className="bg-stone-50 min-h-[calc(100vh-65px)] px-3 py-5 pb-28 sm:min-h-[calc(100vh-57px)] sm:px-4 sm:py-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-stone-900 mb-8">Панель администратора</h1>
+        <h1 className="text-2xl font-bold text-stone-900 mb-5 sm:text-3xl sm:mb-8">Панель администратора</h1>
 
-        <div className="bg-white border border-stone-200 rounded-xl shadow-sm p-6 mb-8">
-          <h2 className="text-xl font-semibold text-stone-900 mb-4">
+        <div className="bg-white border border-stone-200 rounded-xl shadow-sm p-4 mb-6 sm:p-6 sm:mb-8">
+          <h2 className="text-lg font-semibold text-stone-900 mb-4 sm:text-xl">
             {editingId ? 'Редактировать книгу' : manualMode ? 'Добавить книгу вручную' : 'Добавить книгу'}
           </h2>
           {manualMode && (
@@ -187,7 +187,7 @@ export default function AdminPage() {
             )}
             <div>
               <label className="block text-stone-600 text-sm mb-1">Аудио</label>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="text"
                   value={form.audio_url}
@@ -196,7 +196,7 @@ export default function AdminPage() {
                   className="flex-1 bg-white border border-stone-300 rounded-lg px-3 py-2 text-stone-900 focus:border-amber-500 focus:outline-none"
                   disabled={!!audioFile}
                 />
-                <label className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm px-3 py-2 border border-blue-200 hover:border-blue-400 rounded-lg transition-colors cursor-pointer flex-shrink-0">
+                <label className="flex items-center justify-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm px-3 py-2 border border-blue-200 hover:border-blue-400 rounded-lg transition-colors cursor-pointer sm:flex-shrink-0">
                   <FiUpload size={14} />
                   {audioFile ? audioFile.name.slice(0, 15) + '…' : 'Файл'}
                   <input
@@ -222,7 +222,7 @@ export default function AdminPage() {
                 ))}
               </select>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="submit"
                 disabled={loading}
@@ -243,19 +243,19 @@ export default function AdminPage() {
           </form>
         </div>
 
-        <div className="bg-white border border-stone-200 rounded-xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-900 mb-4">Книги ({books.length})</h2>
+        <div className="bg-white border border-stone-200 rounded-xl shadow-sm p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-stone-900 mb-4 sm:text-xl">Книги ({books.length})</h2>
           <div className="space-y-3">
             {books.map((book) => (
-              <div key={book.id} className={`flex items-center gap-4 p-3 border rounded-lg ${editingId === book.id ? 'border-amber-300 bg-amber-50' : 'border-stone-100'}`}>
+              <div key={book.id} className={`flex flex-wrap items-center gap-3 p-3 border rounded-lg sm:gap-4 ${editingId === book.id ? 'border-amber-300 bg-amber-50' : 'border-stone-100'}`}>
                 {book.cover_url && (
                   <img src={book.cover_url} alt={book.title} className="w-10 h-14 object-contain flex-shrink-0" />
                 )}
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1 basis-[calc(100%-3.25rem)] sm:basis-0">
                   <p className="text-stone-900 font-medium truncate">{book.title}</p>
                   <p className="text-stone-500 text-sm truncate">{book.author}</p>
                 </div>
-                <label className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm px-3 py-1 border border-blue-200 hover:border-blue-400 rounded-lg transition-colors cursor-pointer flex-shrink-0">
+                <label className="flex flex-1 items-center justify-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm px-3 py-1.5 border border-blue-200 hover:border-blue-400 rounded-lg transition-colors cursor-pointer sm:flex-none sm:flex-shrink-0 sm:py-1">
                   {book.audio_url ? <FiRefreshCw size={14} /> : <FiUpload size={14} />}
                   MP3
                   <input
@@ -265,7 +265,7 @@ export default function AdminPage() {
                     onChange={(e) => e.target.files[0] && handleUploadAudio(book.id, e.target.files[0])}
                   />
                 </label>
-                <label className="flex items-center gap-1.5 text-violet-600 hover:text-violet-700 text-sm px-3 py-1 border border-violet-200 hover:border-violet-400 rounded-lg transition-colors cursor-pointer flex-shrink-0">
+                <label className="flex flex-1 items-center justify-center gap-1.5 text-violet-600 hover:text-violet-700 text-sm px-3 py-1.5 border border-violet-200 hover:border-violet-400 rounded-lg transition-colors cursor-pointer sm:flex-none sm:flex-shrink-0 sm:py-1">
                   <FiUpload size={14} />
                   ZIP
                   <input
@@ -277,13 +277,13 @@ export default function AdminPage() {
                 </label>
                 <button
                   onClick={() => handleEdit(book)}
-                  className="text-amber-600 hover:text-amber-700 text-sm px-3 py-1 border border-amber-200 hover:border-amber-400 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                  className="flex-1 text-amber-600 hover:text-amber-700 text-sm px-3 py-1.5 border border-amber-200 hover:border-amber-400 rounded-lg transition-colors cursor-pointer sm:flex-none sm:flex-shrink-0 sm:py-1"
                 >
                   Изменить
                 </button>
                 <button
                   onClick={() => handleDelete(book.id, book.title)}
-                  className="text-red-500 hover:text-red-700 text-sm px-3 py-1 border border-red-200 hover:border-red-400 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                  className="flex-1 text-red-500 hover:text-red-700 text-sm px-3 py-1.5 border border-red-200 hover:border-red-400 rounded-lg transition-colors cursor-pointer sm:flex-none sm:flex-shrink-0 sm:py-1"
                 >
                   Удалить
                 </button>
